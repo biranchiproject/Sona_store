@@ -1,0 +1,136 @@
+Create a professional Play Store–like web platform named "Sona’s Store".
+
+Core Concept:
+- This is an App Store for installable web apps (PWAs) only.
+- No APK, no ZIP, no native downloads.
+- Apps are installed using the browser’s native "Install / Add to Home Screen" feature.
+- User experience should feel like Play Store’s “GET APP” flow.
+
+Tech Stack:
+- Frontend: React + Tailwind CSS
+- Backend: Node.js + Express
+- Authentication: Firebase Authentication
+  - Google (Gmail) login
+  - GitHub login
+  - Email + Password signup/login
+  - Forgot password via email reset / OTP link
+- Database: Dummy JSON / mock data (replaceable later with Firebase Firestore)
+- PWA Support: Full (manifest.json + service worker)
+- Hosting-ready (HTTPS assumed)
+
+Design & Theme:
+- Black background (dark mode default)
+- Neon accent colors (blue / purple / green glow, your choice)
+- Modern, minimal, premium UI
+- Play Store–inspired layout (not a clone)
+- Mobile-first responsive design
+- Smooth hover + glow animations
+
+Platform Architecture:
+- ONE WEBSITE with role-based access control (no separate admin site)
+
+User Side Features:
+1. Homepage
+   - App grid with cards
+   - Each card shows app icon, name, short description
+   - "GET APP" button
+
+2. App Details Page
+   - Screenshots
+   - Full description
+   - Category
+   - Developer name
+   - "GET APP" button
+   - Trigger browser install prompt if PWA installable
+   - Otherwise open app URL in Chrome
+
+3. Authentication
+   - Login / Signup page
+   - Options:
+     - Continue with Google
+     - Continue with GitHub
+     - Email + Password
+   - Forgot password:
+     - Send secure email reset link / OTP via Gmail
+   - Logout
+   - User profile page
+
+4. User App Submission (optional but included)
+   - Submit PWA app URL
+   - Upload icon
+   - Status: Pending / Approved / Rejected
+   - Users can see their submission status
+
+Admin Side Features:
+1. Admin Route: /admin
+2. Access only if user.role === "admin"
+3. Admin Dashboard
+   - Total apps
+   - Pending submissions
+4. App Management
+   - Add new PWA apps
+   - Edit app details
+   - Approve / Reject user submissions
+   - Remove apps
+5. Normal users must be blocked from admin routes
+
+Database Models (Mock Data):
+apps:
+- id
+- name
+- description
+- iconUrl
+- pwaUrl
+- category
+- status (approved / pending / rejected)
+- createdAt
+
+users:
+- uid
+- name
+- email
+- role (admin / user)
+
+PWA Requirements:
+- manifest.json with:
+  - name: "Sona’s Store"
+  - icons
+  - theme_color
+  - background_color
+  - start_url
+  - display: standalone
+- Service worker for installability and basic offline support
+- App opens fullscreen after install (no browser UI)
+
+Security & Rules:
+- Only HTTPS app links (no localhost)
+- No APK or ZIP handling
+- No phone permissions
+- No WebView-based fake apps
+- Use Firebase Auth best practices
+- Add clear comments where Firebase config and Firestore will be connected later
+
+Project Structure:
+frontend/
+  components/
+  pages/
+  hooks/
+  styles/
+backend/
+  routes/
+  controllers/
+  data/
+  middleware/
+
+Goal:
+Generate a fully working base project for "Sona’s Store" that:
+- Looks and feels like a real app store
+- Uses PWA install behavior ("GET APP")
+- Has professional authentication (Google, GitHub, Email/Password)
+- Includes admin approval workflow
+- Is clean, secure, beginner-friendly, and easy to extend later
+
+Add clear comments in the code explaining:
+- Where to paste Firebase keys
+- Where to replace mock data with Firestore
+- Where to add deployment config later
