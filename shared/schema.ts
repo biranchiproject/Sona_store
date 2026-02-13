@@ -1,81 +1,86 @@
-import { pgTable, text, serial, integer, boolean, timestamp, varchar, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, jsonb, uuid } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 // === TABLE DEFINITIONS ===
 
 export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
+  id: text("id").primaryKey(), // UUID from Firebase/Supabase
   email: text("email").notNull().unique(),
-  password: text("password").notNull(), // Will be hashed (or mock for now)
   name: text("name").notNull(),
   role: text("role", { enum: ["admin", "user"] }).default("user").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
+  createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`)
 });
 
 export const apps = pgTable("apps", {
-  id: serial("id").primaryKey(),
+  id: uuid("id").defaultRandom().primaryKey(), // UUID
   name: text("name").notNull(),
   shortDescription: text("short_description").notNull(),
   fullDescription: text("full_description").notNull(),
   iconUrl: text("icon_url").notNull(),
-  pwaUrl: text("pwa_url").notNull(),
+  pwa_url: text("pwa_url"),
   category: text("category").notNull(),
-  screenshots: text("screenshots").array(), // Array of URLs
+  screenshots: jsonb("screenshots").$type<string[]>().default([]), // Postgres has native JSONB
+  apk_url: text("apk_url"),
+  fileSize: integer("file_size"),
+  versionName: text("version_name"),
+  versionCode: integer("version_code"),
   status: text("status", { enum: ["pending", "approved", "rejected"] }).default("pending").notNull(),
-  developerId: integer("developer_id").references(() => users.id).notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
+  developerId: text("developer_id").references(() => users.id).notNull(),
+  createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const reviews = pgTable("reviews", {
+  id: uuid("id").defaultRandom().primaryKey(), // UUID
+  appId: uuid("app_id").references(() => apps.id).notNull(),
+  userId: text("user_id").references(() => users.id).notNull(),
+  rating: integer("rating").notNull(),
+  comment: text("comment"),
+  createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
 // === RELATIONS ===
 
-export const appsRelations = relations(apps, ({ one }) => ({
+export const usersRelations = relations(users, ({ many }) => ({
+  apps: many(apps),
+  reviews: many(reviews),
+}));
+
+export const appsRelations = relations(apps, ({ one, many }) => ({
   developer: one(users, {
     fields: [apps.developerId],
     references: [users.id],
   }),
+  reviews: many(reviews),
 }));
 
-export const usersRelations = relations(users, ({ many }) => ({
-  apps: many(apps),
+export const reviewsRelations = relations(reviews, ({ one }) => ({
+  app: one(apps, {
+    fields: [reviews.appId],
+    references: [apps.id],
+  }),
+  user: one(users, {
+    fields: [reviews.userId],
+    references: [users.id],
+  }),
 }));
 
-// === BASE SCHEMAS ===
+// === ZOD SCHEMAS ===
 
-export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, role: true });
-// Allow explicit role setting for seeding, but usually default to user
-export const seedUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
-
-export const insertAppSchema = createInsertSchema(apps).omit({ 
-  id: true, 
-  createdAt: true, 
-  status: true, 
-  developerId: true,
-  screenshots: true // Handle separately or as optional
-}).extend({
-  screenshots: z.array(z.string()).optional(),
-});
-
-// === EXPLICIT API CONTRACT TYPES ===
+export const insertAppSchema = createInsertSchema(apps);
+export const insertReviewSchema = createInsertSchema(reviews);
+export const insertUserSchema = createInsertSchema(users);
 
 export type User = typeof users.$inferSelect;
-export type InsertUser = z.infer<typeof insertUserSchema>;
-
 export type App = typeof apps.$inferSelect;
+export type AppResponse = App;
+export type Review = typeof reviews.$inferSelect;
+
+export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertApp = z.infer<typeof insertAppSchema>;
+export type InsertReview = z.infer<typeof insertReviewSchema>;
 
-// Request types
-export type LoginRequest = { email: string; password: string }; // Custom login
-export type RegisterRequest = InsertUser;
-export type CreateAppRequest = InsertApp;
-export type UpdateAppStatusRequest = { status: "approved" | "rejected" | "pending" };
-
-// Response types
-export type AuthResponse = User;
-export type AppResponse = App & { developer?: { name: string } };
-
-// Enums for frontend usage
 export const APP_CATEGORIES = [
   "Games",
   "Productivity",

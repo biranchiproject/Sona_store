@@ -21,13 +21,13 @@ export async function registerRoutes(
       const { category, search } = req.query;
       // If not admin, only show approved apps
       const status = req.isAuthenticated() && (req.user as any).role === 'admin' ? undefined : 'approved';
-      
-      const apps = await storage.getApps({ 
-        category: category as string, 
+
+      const apps = await storage.getApps({
+        category: category as string,
         search: search as string,
-        status 
+        status
       });
-      
+
       // Need to populate developer name efficiently (mocking join for now or fetch)
       // DrizzleORM relations or manual fetch. For now, let's fetch developer for each app (optimized later)
       const appsWithDev = await Promise.all(apps.map(async (app) => {
@@ -44,12 +44,30 @@ export async function registerRoutes(
   // Get App Details
   app.get(api.apps.get.path, async (req, res) => {
     try {
-      const appItem = await storage.getApp(Number(req.params.id));
-      if (!appItem) return res.status(404).json({ message: "App not found" });
+      const appItem = await storage.getApp(req.params.id);
+
+      if (!appItem) {
+        return res.status(404).json({ message: "App not found" });
+      }
+
+      // Access Control:
+      // 1. Admin can see everything
+      // 2. Developer can see their own apps (even if pending)
+      // 3. Public/Other Users can ONLY see 'approved' apps
+
+      const user = req.user as any;
+      const isAdmin = user?.role === 'admin';
+      const isOwner = user?.id === appItem.developerId;
+      const isApproved = appItem.status === 'approved';
+
+      if (!isApproved && !isAdmin && !isOwner) {
+        return res.status(404).json({ message: "App not found" });
+      }
 
       const dev = await storage.getUser(appItem.developerId);
       res.json({ ...appItem, developer: { name: dev?.name || 'Unknown' } });
     } catch (err) {
+      console.error("Error getting app:", err);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -90,7 +108,7 @@ export async function registerRoutes(
     }
     try {
       const { status } = req.body;
-      const updated = await storage.updateAppStatus(Number(req.params.id), status);
+      const updated = await storage.updateAppStatus(req.params.id, status);
       if (!updated) return res.status(404).json({ message: "App not found" });
       res.json(updated);
     } catch (err) {
@@ -110,8 +128,8 @@ export async function registerRoutes(
   // Delete App
   app.delete(api.apps.delete.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
-    
-    const appItem = await storage.getApp(Number(req.params.id));
+
+    const appItem = await storage.getApp(req.params.id);
     if (!appItem) return res.status(404).json({ message: "App not found" });
 
     // Only admin or owner can delete
@@ -119,7 +137,7 @@ export async function registerRoutes(
       return res.status(403).send("Forbidden");
     }
 
-    await storage.deleteApp(Number(req.params.id));
+    await storage.deleteApp(req.params.id);
     res.status(204).send();
   });
 
@@ -152,12 +170,12 @@ export async function seedDatabase(storage: any) {
     // Create a dummy developer to own these apps
     let dev = await storage.getUserByUsername("dev@sona.com");
     if (!dev) {
-       dev = await storage.createUser({
-         email: "dev@sona.com",
-         name: "Sona Dev",
-         password: "scrypt_hash_placeholder", // This won't work for login but works for foreign key
-         role: "user"
-       });
+      dev = await storage.createUser({
+        email: "dev@sona.com",
+        name: "Sona Dev",
+        password: "scrypt_hash_placeholder", // This won't work for login but works for foreign key
+        role: "user"
+      });
     }
 
     const seedApps = [
@@ -166,7 +184,7 @@ export async function seedDatabase(storage: any) {
         shortDescription: "Capture your glowing thoughts.",
         fullDescription: "Neon Notes is a minimal, dark-themed note taking app designed for night owls. Syncs across devices and supports markdown.",
         iconUrl: "https://images.unsplash.com/photo-1517849845537-4d257902454a?w=100&h=100&fit=crop",
-        pwaUrl: "https://neon-notes-demo.replit.app",
+        pwaUrl: "https://neon-notes-demo.example.com",
         category: "Productivity",
         screenshots: [
           "https://images.unsplash.com/photo-1517849845537-4d257902454a?w=800&q=80",
@@ -180,7 +198,7 @@ export async function seedDatabase(storage: any) {
         shortDescription: "Encrypted messaging for the future.",
         fullDescription: "Stay connected with end-to-end encryption. CyberChat offers self-destructing messages, dark mode by default, and zero logs.",
         iconUrl: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=100&h=100&fit=crop",
-        pwaUrl: "https://cyberchat-demo.replit.app",
+        pwaUrl: "https://cyberchat-demo.example.com",
         category: "Social",
         screenshots: [
           "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800&q=80"
@@ -193,7 +211,7 @@ export async function seedDatabase(storage: any) {
         shortDescription: "8-bit racing madness.",
         fullDescription: "Race through synthwave tracks in this PWA-exclusive racing game. High scores, global leaderboards, and controller support.",
         iconUrl: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=100&h=100&fit=crop",
-        pwaUrl: "https://retro-racer-demo.replit.app",
+        pwaUrl: "https://retro-racer-demo.example.com",
         category: "Games",
         screenshots: [
           "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=800&q=80"
@@ -206,7 +224,7 @@ export async function seedDatabase(storage: any) {
         shortDescription: "Soundscapes for deep work.",
         fullDescription: "Block out distractions with curated ambient sounds. Features Pomodoro timer and usage analytics.",
         iconUrl: "https://images.unsplash.com/photo-1519834785169-98be25ec3f84?w=100&h=100&fit=crop",
-        pwaUrl: "https://zen-focus-demo.replit.app",
+        pwaUrl: "https://zen-focus-demo.example.com",
         category: "Health & Fitness",
         screenshots: [],
         status: "pending" as const,

@@ -1,0 +1,16 @@
+{
+    "name": "Sona’s Store",
+    "short_name": "SonaStore",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#000000",
+    "theme_color": "#00f3ff",
+    "description": "The next generation PWA store.",
+    "icons": [
+        {
+            "src": "/favicon.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}

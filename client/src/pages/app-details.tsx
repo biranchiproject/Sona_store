@@ -1,17 +1,21 @@
 import { useParams } from "wouter";
 import { useApp } from "@/hooks/use-apps";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import { ReviewForm } from "@/components/reviews/review-form";
+import { ReviewList } from "@/components/reviews/review-list";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Share2, Download, Info, CheckCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle, Info } from "lucide-react";
 import { Link } from "wouter";
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { ShareModal } from "@/components/share-modal";
 
 export default function AppDetails() {
   const { id } = useParams();
-  const { data: app, isLoading, error } = useApp(Number(id));
+  const { data: app, isLoading, error } = useApp(id || "");
   const { toast } = useToast();
+  const { user } = useAuth();
   const [installState, setInstallState] = useState<"idle" | "installing" | "installed">("idle");
 
   if (isLoading) return <DetailsSkeleton />;
@@ -19,20 +23,35 @@ export default function AppDetails() {
 
   const handleInstall = () => {
     setInstallState("installing");
-    
+
     // Simulate install delay
     setTimeout(() => {
       setInstallState("installed");
       toast({
-        title: "Installed Successfully",
-        description: `${app.name} has been added to your library.`,
+        title: "Download Started",
+        description: `${app.name} is downloading...`,
       });
-      
-      // Open PWA URL in new tab after "install"
-      setTimeout(() => {
-        window.open(app.pwaUrl, "_blank");
-      }, 1000);
-    }, 2000);
+
+      // Trigger download
+      const downloadUrl = (app.apk_url || app.pwa_url);
+      if (!downloadUrl) {
+        toast({
+          title: "Download Failed",
+          description: "No download URL found for this app.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = app.apk_url ? `${app.name}.apk` : 'app';
+      link.target = "_blank";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+    }, 1500);
   };
 
   return (
@@ -44,34 +63,34 @@ export default function AppDetails() {
       {/* Header Section */}
       <div className="flex flex-col md:flex-row gap-8 items-start">
         <div className="w-32 h-32 md:w-40 md:h-40 rounded-3xl overflow-hidden bg-muted border-2 border-white/10 shadow-2xl shrink-0 neon-shadow">
-          <img 
-            src={app.iconUrl} 
-            alt={app.name} 
+          <img
+            src={app.iconUrl}
+            alt={app.name}
             className="w-full h-full object-cover"
             onError={(e) => {
               (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${app.name}&background=random`;
             }}
           />
         </div>
-        
+
         <div className="flex-1 space-y-4">
           <div>
             <h1 className="text-4xl md:text-5xl font-display font-bold mb-2">{app.name}</h1>
-            <p className="text-lg text-primary font-medium">{app.developer?.name}</p>
+            {/* Developer name updated */}
+            <p className="text-lg text-primary font-medium">Biranchi Creativity</p>
             <div className="flex gap-2 mt-2 text-sm text-muted-foreground">
               <span className="bg-white/5 px-2 py-1 rounded border border-white/5">{app.category}</span>
-              <span className="bg-white/5 px-2 py-1 rounded border border-white/5">v1.0.0</span>
+              <span className="bg-white/5 px-2 py-1 rounded border border-white/5">v{app.versionName || "1.0.0"}</span>
             </div>
           </div>
 
           <div className="flex flex-wrap gap-4 pt-2">
-            <Button 
-              size="lg" 
-              className={`min-w-[160px] rounded-full text-lg font-bold shadow-lg transition-all ${
-                installState === "installed" 
-                  ? "bg-green-500 hover:bg-green-600 text-white shadow-green-500/25" 
-                  : "bg-primary text-black hover:bg-primary/90 hover:scale-105 shadow-primary/25"
-              }`}
+            <Button
+              size="lg"
+              className={`w-full md:w-auto min-w-[160px] rounded-full text-lg font-bold shadow-lg transition-all ${installState === "installed"
+                ? "bg-green-500 hover:bg-green-600 text-white shadow-green-500/25"
+                : "bg-primary text-black hover:bg-primary/90 hover:scale-105 shadow-primary/25"
+                }`}
               onClick={handleInstall}
               disabled={installState === "installing" || installState === "installed"}
             >
@@ -87,10 +106,9 @@ export default function AppDetails() {
                 </>
               )}
             </Button>
-            
-            <Button variant="outline" size="lg" className="rounded-full border-white/10 hover:border-primary/50">
-              <Share2 className="mr-2 h-5 w-5" /> Share
-            </Button>
+
+
+            <ShareModal appName={app.name} appDescription={app.shortDescription} />
           </div>
         </div>
       </div>
@@ -109,9 +127,9 @@ export default function AppDetails() {
             // Fallback generic screenshots
             [1, 2, 3].map((i) => (
               <div key={i} className="shrink-0 w-[280px] md:w-[350px] aspect-[9/16] rounded-2xl overflow-hidden border border-white/10 bg-muted/20 snap-center relative">
-                 <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-                    <span className="text-sm">No Preview Available</span>
-                 </div>
+                <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+                  <span className="text-sm">No Preview Available</span>
+                </div>
               </div>
             ))
           )}
@@ -135,7 +153,7 @@ export default function AppDetails() {
             <div className="space-y-3 text-sm">
               <div className="flex justify-between py-2 border-b border-white/5">
                 <span className="text-muted-foreground">Version</span>
-                <span>1.0.0</span>
+                <span>{app.versionName || "1.0.0"}</span>
               </div>
               <div className="flex justify-between py-2 border-b border-white/5">
                 <span className="text-muted-foreground">Updated</span>
@@ -147,11 +165,25 @@ export default function AppDetails() {
               </div>
               <div className="flex justify-between py-2 border-b border-white/5">
                 <span className="text-muted-foreground">Size</span>
-                <span>15 MB</span>
+                <span>{app.fileSize ? (app.fileSize / (1024 * 1024)).toFixed(1) + " MB" : "Varies"}</span>
               </div>
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="mt-12">
+        <h2 className="text-2xl font-bold mb-6 text-white">Reviews & Ratings</h2>
+        {user ? (
+          <div className="mb-8">
+            <ReviewForm appId={app.id.toString()} />
+          </div>
+        ) : (
+          <div className="mb-8 p-4 bg-gray-900/50 rounded-lg border border-gray-800 text-center">
+            <p className="text-gray-400">Please <Link href="/auth" className="text-green-500 hover:underline">sign in</Link> to write a review.</p>
+          </div>
+        )}
+        <ReviewList appId={app.id.toString()} />
       </div>
     </div>
   );

@@ -1,16 +1,18 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { 
-  Menu, 
-  X, 
-  Search, 
-  User as UserIcon, 
-  LayoutGrid, 
-  Shield, 
-  LogOut, 
+import {
+  Menu,
+  X,
+  Search,
+  User as UserIcon,
+  LayoutGrid,
+  Shield,
+  LogOut,
   PlusCircle,
-  ShoppingBag
+  ShoppingBag,
+  Mail,
+  Code
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,18 +26,51 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { ContactModal } from "./contact-modal";
 
 export function Layout({ children }: { children: ReactNode }) {
   const [location, setLocation] = useLocation();
-  const { user, logoutMutation } = useAuth();
+  const { user, logout } = useAuth();
   const [search, setSearch] = useState("");
+  const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [contactType, setContactType] = useState<"Admin" | "Developer">("Admin");
+
+  useEffect(() => {
+    // Debounce timer
+    const timer = setTimeout(() => {
+      if (search.trim()) {
+        setLocation(`/?search=${encodeURIComponent(search)}`);
+      } else if (search === "") {
+        // Only clear if we are already searching to avoid loop on initial load
+        if (window.location.search.includes("search=")) {
+          setLocation("/");
+        }
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [search, setLocation]);
+
+  // Sync state with URL on load/popstate
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const query = params.get("search");
+    if (query) {
+      setSearch(query);
+    }
+  }, []);
+
+
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (search.trim()) {
-      setLocation(`/?search=${encodeURIComponent(search)}`);
-    }
+    // Search is handled by useEffect
   };
+
+  // Scroll to top on location change
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location]);
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground selection:bg-primary selection:text-black">
@@ -61,7 +96,7 @@ export function Layout({ children }: { children: ReactNode }) {
                   <Link href="/" className="px-2 py-2 text-lg hover:text-primary transition-colors">Home</Link>
                   <Link href="/profile" className="px-2 py-2 text-lg hover:text-primary transition-colors">Profile</Link>
                   {user?.role === 'admin' && (
-                    <Link href="/admin" className="px-2 py-2 text-lg hover:text-primary transition-colors">Admin</Link>
+                    <Link href="/console" className="px-2 py-2 text-lg hover:text-primary transition-colors">Admin Console</Link>
                   )}
                 </div>
               </div>
@@ -93,13 +128,15 @@ export function Layout({ children }: { children: ReactNode }) {
           <nav className="flex items-center gap-2 ml-4">
             {user ? (
               <>
-                <Button variant="ghost" size="icon" asChild className="hidden md:flex text-muted-foreground hover:text-primary hover:bg-primary/10">
-                  <Link href="/submit">
-                    <PlusCircle className="h-5 w-5" />
-                    <span className="sr-only">Submit App</span>
-                  </Link>
-                </Button>
-                
+                {user.role === 'admin' && (
+                  <Button variant="ghost" size="icon" asChild className="hidden md:flex text-muted-foreground hover:text-primary hover:bg-primary/10">
+                    <Link href="/submit">
+                      <PlusCircle className="h-5 w-5" />
+                      <span className="sr-only">Submit App</span>
+                    </Link>
+                  </Button>
+                )}
+
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-9 w-9 rounded-full ml-2 ring-2 ring-transparent hover:ring-primary/50 transition-all">
@@ -124,22 +161,50 @@ export function Layout({ children }: { children: ReactNode }) {
                         <span>Profile</span>
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/submit" className="cursor-pointer">
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        <span>Submit App</span>
-                      </Link>
-                    </DropdownMenuItem>
                     {user.role === 'admin' && (
                       <DropdownMenuItem asChild>
-                        <Link href="/admin" className="cursor-pointer">
-                          <Shield className="mr-2 h-4 w-4 text-secondary" />
-                          <span className="text-secondary font-medium">Admin Dashboard</span>
+                        <Link href="/developer" className="cursor-pointer">
+                          <LayoutGrid className="mr-2 h-4 w-4" />
+                          <span>Developer Dashboard</span>
                         </Link>
                       </DropdownMenuItem>
                     )}
+                    {user.role === 'admin' && (
+                      <DropdownMenuItem asChild>
+                        <Link href="/submit?mode=apk" className="cursor-pointer">
+                          <PlusCircle className="mr-2 h-4 w-4" />
+                          <span>Submit App</span>
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
+                    {user.role === 'admin' && (
+                      <DropdownMenuItem asChild>
+                        <Link href="/console" className="cursor-pointer">
+                          <Shield className="mr-2 h-4 w-4 text-secondary" />
+                          <span className="text-secondary font-medium">Admin Console</span>
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
+                    {user.role !== 'admin' && (
+                      <DropdownMenuItem onClick={() => {
+                        setContactType("Admin");
+                        setContactModalOpen(true);
+                      }} className="cursor-pointer">
+                        <Mail className="mr-2 h-4 w-4" />
+                        <span>Contact Admin</span>
+                      </DropdownMenuItem>
+                    )}
+                    {user.role === 'admin' && (
+                      <DropdownMenuItem onClick={() => {
+                        setContactType("Developer");
+                        setContactModalOpen(true);
+                      }} className="cursor-pointer">
+                        <Code className="mr-2 h-4 w-4" />
+                        <span>Contact Developer</span>
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator className="bg-border/50" />
-                    <DropdownMenuItem onClick={() => logoutMutation.mutate()} className="text-red-400 cursor-pointer focus:text-red-400 focus:bg-red-400/10">
+                    <DropdownMenuItem onClick={() => logout()} className="text-red-400 cursor-pointer focus:text-red-400 focus:bg-red-400/10">
                       <LogOut className="mr-2 h-4 w-4" />
                       <span>Log out</span>
                     </DropdownMenuItem>
@@ -152,23 +217,29 @@ export function Layout({ children }: { children: ReactNode }) {
               </Button>
             )}
           </nav>
+
         </div>
-      </header>
+      </header >
 
       {/* Main Content */}
-      <main className="flex-1 container py-6 md:py-10 px-4 md:px-6 relative">
+      < main className="flex-1 container py-6 md:py-10 px-4 md:px-6 relative" >
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background opacity-50 pointer-events-none"></div>
         {children}
-      </main>
+      </main >
 
       {/* Footer */}
-      <footer className="border-t border-border/40 py-6 md:py-0">
+      < footer className="border-t border-border/40 py-6 md:py-0" >
         <div className="container flex flex-col items-center justify-between gap-4 md:h-16 md:flex-row px-4 md:px-6">
           <p className="text-center text-sm leading-loose text-muted-foreground md:text-left">
-            Built for the future. Sona's Store © 2024
+            &copy; Biranchi Creativity • All Rights Reserved <span className="text-red-500">❤️</span>
           </p>
         </div>
       </footer>
+      <ContactModal
+        isOpen={contactModalOpen}
+        onClose={() => setContactModalOpen(false)}
+        recipient={contactType}
+      />
     </div>
   );
 }

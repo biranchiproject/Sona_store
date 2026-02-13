@@ -1,26 +1,29 @@
 import { users, apps, type User, type InsertUser, type App, type InsertApp } from "@shared/schema";
 import { db } from "./db";
-import { eq, ilike, and, desc, sql } from "drizzle-orm";
+import { eq, like, and, desc, sql } from "drizzle-orm";
+import { randomUUID } from "crypto";
+
+
 
 export interface IStorage {
   // User operations
-  getUser(id: number): Promise<User | undefined>;
+  getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>; // username is email
   createUser(user: InsertUser): Promise<User>;
 
   // App operations
-  getApp(id: number): Promise<App | undefined>;
-  getApps(filters?: { category?: string; search?: string; status?: string; developerId?: number }): Promise<App[]>;
-  createApp(app: InsertApp): Promise<App>;
-  updateAppStatus(id: number, status: "approved" | "rejected" | "pending"): Promise<App | undefined>;
-  deleteApp(id: number): Promise<void>;
-  
+  getApp(id: string): Promise<App | undefined>;
+  getApps(filters?: { category?: string; search?: string; status?: string; developerId?: string }): Promise<App[]>;
+  createApp(app: InsertApp & { developerId: string; status?: "pending" | "approved" | "rejected" }): Promise<App>;
+  updateAppStatus(id: string, status: "approved" | "rejected" | "pending"): Promise<App | undefined>;
+  deleteApp(id: string): Promise<void>;
+
   // Admin operations
   getStats(): Promise<{ totalApps: number; pendingApps: number; totalUsers: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
-  async getUser(id: number): Promise<User | undefined> {
+  async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
@@ -31,22 +34,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(insertUser).returning();
+    const id = randomUUID();
+    const [user] = await db.insert(users).values({ ...insertUser, id }).returning();
     return user;
   }
 
-  async getApp(id: number): Promise<App | undefined> {
+  async getApp(id: string): Promise<App | undefined> {
     const [app] = await db.select().from(apps).where(eq(apps.id, id));
     return app;
   }
 
-  async getApps(filters?: { category?: string; search?: string; status?: string; developerId?: number }): Promise<App[]> {
+  async getApps(filters?: { category?: string; search?: string; status?: string; developerId?: string }): Promise<App[]> {
     let conditions = [];
 
     if (filters?.status) {
       conditions.push(eq(apps.status, filters.status as any));
     }
-    
+
     if (filters?.category) {
       conditions.push(eq(apps.category, filters.category));
     }
@@ -57,7 +61,7 @@ export class DatabaseStorage implements IStorage {
 
     if (filters?.search) {
       conditions.push(
-        ilike(apps.name, `%${filters.search}%`)
+        like(apps.name, `%${filters.search}%`)
       );
     }
 
@@ -67,12 +71,27 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(apps.createdAt));
   }
 
-  async createApp(insertApp: InsertApp): Promise<App> {
-    const [app] = await db.insert(apps).values(insertApp).returning();
+  async createApp(insertApp: InsertApp & { developerId: string; status?: "pending" | "approved" | "rejected" }): Promise<App> {
+    const [app] = await db.insert(apps).values({
+      name: insertApp.name,
+      shortDescription: insertApp.shortDescription,
+      fullDescription: insertApp.fullDescription,
+      iconUrl: insertApp.iconUrl,
+      pwa_url: insertApp.pwa_url,
+      apk_url: insertApp.apk_url,
+      category: insertApp.category,
+      screenshots: (insertApp.screenshots || []) as string[],
+      fileSize: insertApp.fileSize,
+      versionName: insertApp.versionName,
+      versionCode: insertApp.versionCode,
+      status: insertApp.status || "pending",
+      developerId: insertApp.developerId,
+    }).returning();
+
     return app;
   }
 
-  async updateAppStatus(id: number, status: "approved" | "rejected" | "pending"): Promise<App | undefined> {
+  async updateAppStatus(id: string, status: "approved" | "rejected" | "pending"): Promise<App | undefined> {
     const [updatedApp] = await db
       .update(apps)
       .set({ status })
@@ -81,7 +100,7 @@ export class DatabaseStorage implements IStorage {
     return updatedApp;
   }
 
-  async deleteApp(id: number): Promise<void> {
+  async deleteApp(id: string): Promise<void> {
     await db.delete(apps).where(eq(apps.id, id));
   }
 

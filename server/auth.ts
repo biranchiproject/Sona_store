@@ -44,13 +44,13 @@ export function setupAuth(app: any, storage: IStorage) {
           const derivedKey = (await scryptAsync(password, salt, 64)) as Buffer;
 
           if (key.length !== derivedKey.length) {
-             return done(null, false, { message: "Incorrect password." });
+            return done(null, false, { message: "Incorrect password." });
           }
 
           if (timingSafeEqual(Buffer.from(key, "hex"), derivedKey)) {
-             return done(null, user);
+            return done(null, user);
           } else {
-             return done(null, false, { message: "Incorrect password." });
+            return done(null, false, { message: "Incorrect password." });
           }
         }
       } catch (err) {
@@ -63,7 +63,7 @@ export function setupAuth(app: any, storage: IStorage) {
     done(null, (user as User).id);
   });
 
-  passport.deserializeUser(async (id: number, done) => {
+  passport.deserializeUser(async (id: string, done) => {
     try {
       const user = await storage.getUser(id);
       done(null, user);

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -16,11 +16,12 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, Github, Mail, ArrowLeft } from "lucide-react";
+import { SiGoogle } from "react-icons/si";
 
 // Schemas
 const loginSchema = z.object({
-  username: z.string().min(1, "Username/Email is required"),
+  email: z.string().email("Invalid email address"),
   password: z.string().min(1, "Password is required"),
 });
 
@@ -31,7 +32,7 @@ const registerSchema = z.object({
 });
 
 export default function AuthPage() {
-  const { user, loginMutation, registerMutation } = useAuth();
+  const { user, loginWithGoogle, loginWithGithub } = useAuth();
   const [location, setLocation] = useLocation();
 
   // Redirect if already logged in
@@ -41,7 +42,16 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center px-4">
+    <div className="min-h-[80vh] flex items-center justify-center px-4 relative">
+      <div className="absolute top-4 left-4 md:top-8 md:left-8 z-20">
+        <Button variant="ghost" asChild className="gap-2 text-muted-foreground hover:text-primary">
+          <Link href="/">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Home
+          </Link>
+        </Button>
+      </div>
+
       <div className="w-full max-w-md relative">
         {/* Decorative background blur */}
         <div className="absolute -top-10 -left-10 w-72 h-72 bg-primary/20 rounded-full blur-[100px] pointer-events-none" />
@@ -71,7 +81,7 @@ export default function AuthPage() {
                 <RegisterForm />
               </TabsContent>
             </Tabs>
-            
+
             <div className="mt-6">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
@@ -85,10 +95,12 @@ export default function AuthPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-4 mt-4">
-                <Button variant="outline" className="border-white/10 hover:bg-white/5" disabled>
+                <Button variant="outline" className="border-white/10 hover:bg-white/5" onClick={loginWithGoogle}>
+                  <SiGoogle className="mr-2 h-4 w-4" />
                   Google
                 </Button>
-                <Button variant="outline" className="border-white/10 hover:bg-white/5" disabled>
+                <Button variant="outline" className="border-white/10 hover:bg-white/5" onClick={loginWithGithub}>
+                  <Github className="mr-2 h-4 w-4" />
                   GitHub
                 </Button>
               </div>
@@ -101,14 +113,26 @@ export default function AuthPage() {
 }
 
 function LoginForm() {
-  const { loginMutation } = useAuth();
+  const { loginWithEmail, isLoading, resetPassword } = useAuth();
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { username: "", password: "" },
+    defaultValues: { email: "", password: "" },
   });
 
+  const [resetSent, setResetSent] = useState(false);
+
   function onSubmit(values: z.infer<typeof loginSchema>) {
-    loginMutation.mutate(values);
+    loginWithEmail(values).catch(() => { }); // Error handled in context
+  }
+
+  function handleForgotPassword() {
+    const email = form.getValues("email");
+    if (!email) {
+      form.setError("email", { message: "Please enter your email first" });
+      return;
+    }
+    resetPassword(email);
+    setResetSent(true);
   }
 
   return (
@@ -116,7 +140,7 @@ function LoginForm() {
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField
           control={form.control}
-          name="username"
+          name="email"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Email</FormLabel>
@@ -140,12 +164,24 @@ function LoginForm() {
             </FormItem>
           )}
         />
-        <Button 
-          type="submit" 
+
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="link"
+            className="px-0 text-xs text-muted-foreground hover:text-primary"
+            onClick={handleForgotPassword}
+          >
+            {resetSent ? "Reset link sent!" : "Forgot password?"}
+          </Button>
+        </div>
+
+        <Button
+          type="submit"
           className="w-full bg-primary text-black hover:bg-primary/90 font-bold"
-          disabled={loginMutation.isPending}
+          disabled={isLoading}
         >
-          {loginMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sign In"}
+          {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sign In"}
         </Button>
       </form>
     </Form>
@@ -153,14 +189,14 @@ function LoginForm() {
 }
 
 function RegisterForm() {
-  const { registerMutation } = useAuth();
+  const { registerWithEmail, isLoading } = useAuth();
   const form = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
     defaultValues: { name: "", email: "", password: "" },
   });
 
   function onSubmit(values: z.infer<typeof registerSchema>) {
-    registerMutation.mutate(values);
+    registerWithEmail(values).catch(() => { }); // Error handled in context
   }
 
   return (
@@ -205,12 +241,12 @@ function RegisterForm() {
             </FormItem>
           )}
         />
-        <Button 
-          type="submit" 
+        <Button
+          type="submit"
           className="w-full bg-secondary text-white hover:bg-secondary/90 font-bold"
-          disabled={registerMutation.isPending}
+          disabled={isLoading}
         >
-          {registerMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Create Account"}
+          {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Create Account"}
         </Button>
       </form>
     </Form>

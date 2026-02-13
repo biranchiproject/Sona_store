@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 
 export function AppCard({ app }: { app: AppResponse }) {
   // Generate a mock rating between 4.0 and 5.0 based on app id
-  const rating = (4 + (app.id % 10) / 10).toFixed(1);
+  const idNum = typeof app.id === 'number' ? app.id : app.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const rating = (4 + (idNum % 10) / 10).toFixed(1);
 
   return (
     <Link href={`/app/${app.id}`} className="block h-full outline-none">
-      <motion.div 
+      <motion.div
         whileHover={{ y: -5, scale: 1.02 }}
         transition={{ duration: 0.2 }}
         className="glass-card rounded-2xl p-4 h-full flex flex-col group cursor-pointer"
@@ -19,7 +20,7 @@ export function AppCard({ app }: { app: AppResponse }) {
           <div className="relative">
             <div className="w-16 h-16 rounded-2xl overflow-hidden bg-muted border border-white/10 shadow-lg group-hover:shadow-primary/20 transition-all">
               {/* Using unspash source with specific keywords or the iconUrl if valid */}
-              <img 
+              <img
                 src={app.iconUrl || `https://source.unsplash.com/random/100x100?app,icon,${app.category}`}
                 alt={app.name}
                 className="w-full h-full object-cover"
@@ -34,7 +35,7 @@ export function AppCard({ app }: { app: AppResponse }) {
             <Star className="w-3 h-3 fill-yellow-400" />
           </div>
         </div>
-        
+
         <div className="flex-1">
           <h3 className="font-display font-semibold text-lg text-foreground group-hover:text-primary transition-colors line-clamp-1 mb-1">
             {app.name}

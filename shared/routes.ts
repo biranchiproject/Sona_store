@@ -67,7 +67,7 @@ export const api = {
       method: 'GET' as const,
       path: '/api/apps' as const,
       input: z.object({
-        category: z.enum(APP_CATEGORIES as [string, ...string[]]).optional(),
+        category: z.enum(APP_CATEGORIES as unknown as [string, ...string[]]).optional(),
         search: z.string().optional(),
       }).optional(),
       responses: {

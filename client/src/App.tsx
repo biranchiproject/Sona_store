@@ -14,20 +14,31 @@ import AuthPage from "@/pages/auth-page";
 import SubmitApp from "@/pages/submit-app";
 import AdminDashboard from "@/pages/admin-dashboard";
 import Profile from "@/pages/profile";
+import ConsolePage from "@/pages/console-page";
+import DeveloperDashboard from "@/pages/developer-dashboard";
 
 function Router() {
   return (
-    <Layout>
-      <Switch>
-        <Route path="/" component={Home} />
-        <Route path="/auth" component={AuthPage} />
-        <Route path="/app/:id" component={AppDetails} />
-        <Route path="/submit" component={SubmitApp} />
-        <Route path="/admin" component={AdminDashboard} />
-        <Route path="/profile" component={Profile} />
-        <Route component={NotFound} />
-      </Switch>
-    </Layout>
+    <Switch>
+      {/* Admin Console (Separate Layout) */}
+      <Route path="/console" component={ConsolePage} />
+
+      {/* Standard Layout Routes */}
+      <Route>
+        <Layout>
+          <Switch>
+            <Route path="/" component={Home} />
+            <Route path="/auth" component={AuthPage} />
+            <Route path="/app/:id" component={AppDetails} />
+            <Route path="/submit" component={SubmitApp} />
+            <Route path="/admin" component={AdminDashboard} />
+            <Route path="/developer" component={DeveloperDashboard} />
+            <Route path="/profile" component={Profile} />
+            <Route component={NotFound} />
+          </Switch>
+        </Layout>
+      </Route>
+    </Switch>
   );
 }
 

@@ -4,15 +4,23 @@ import { AppCard, AppCardSkeleton } from "@/components/app-card";
 import { APP_CATEGORIES } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 
 export default function Home() {
   const [location] = useLocation();
+  const searchString = useSearch();
   const [activeCategory, setActiveCategory] = useState<string>("All");
-  
-  // Extract search from URL
-  const searchParams = new URLSearchParams(window.location.search);
+
+  // Extract search from URL reactively
+  const searchParams = new URLSearchParams(searchString);
   const searchQuery = searchParams.get("search") || undefined;
+
+  // Reset category when searching to ensure global search
+  useEffect(() => {
+    if (searchQuery) {
+      setActiveCategory("All");
+    }
+  }, [searchQuery]);
 
   const { data: apps, isLoading, error } = useApps({
     category: activeCategory === "All" ? undefined : activeCategory,
@@ -46,14 +54,14 @@ export default function Home() {
         <section className="relative rounded-3xl overflow-hidden min-h-[300px] md:h-[400px] flex items-center px-6 md:px-12 bg-gradient-to-r from-primary/20 via-background to-secondary/20 border border-white/10">
           <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80')] bg-cover bg-center opacity-10 mix-blend-overlay"></div>
           <div className="relative z-10 max-w-2xl">
-            <motion.h1 
+            <motion.h1
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-4xl md:text-6xl font-display font-bold mb-4 tracking-tight"
+              className="text-3xl md:text-6xl font-display font-bold mb-4 tracking-tight"
             >
               Discover the <span className="text-gradient">Next Gen</span> of PWAs
             </motion.h1>
-            <motion.p 
+            <motion.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
@@ -90,8 +98,8 @@ export default function Home() {
       <section>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-display font-semibold">
-            {searchQuery ? `Search results for "${searchQuery}"` : 
-             activeCategory === "All" ? "Trending Apps" : `${activeCategory} Apps`}
+            {searchQuery ? `Search results for "${searchQuery}"` :
+              activeCategory === "All" ? "Trending Apps" : `${activeCategory} Apps`}
           </h2>
         </div>
 
@@ -107,14 +115,21 @@ export default function Home() {
           </div>
         ) : publishedApps.length === 0 ? (
           <div className="text-center py-20 text-muted-foreground">
-            No apps found. Be the first to submit one!
+            {searchQuery ? (
+              <>
+                <p className="text-xl mb-2">No results found for "{searchQuery}"</p>
+                <p className="text-sm">Try searching for a different app or category.</p>
+              </>
+            ) : (
+              "No apps found. Be the first to submit one!"
+            )}
           </div>
         ) : (
-          <motion.div 
+          <motion.div
             variants={container}
             initial="hidden"
             animate="show"
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+            className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
           >
             {publishedApps.map((app) => (
               <motion.div key={app.id} variants={item}>
